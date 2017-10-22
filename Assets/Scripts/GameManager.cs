@@ -1,15 +1,19 @@
-﻿using System.Collections.Generic;
+﻿using System.Linq;
+using System.Collections.Generic;
+using UniRx;
 using UnityEngine;
 
 public class GameManager : MonoBehaviour
 {
     public BlockProvider BlockProvider { get; private set; }
     public GameObject BlocksArea { get; private set; }
+    public ScoreManager ScoreManager { get; private set; }
 
     void Start()
     {
         this.BlockProvider = GetComponent<BlockProvider>();
         this.BlocksArea = GameObject.Find("Blocks");
+        this.ScoreManager = GetComponent<ScoreManager>();
 
         // 配置の初期化
         InitializeStage();
@@ -39,7 +43,24 @@ public class GameManager : MonoBehaviour
                 var position = new Vector2(posX, posY);
                 var block = BlockProvider.Create(this.BlocksArea.GetComponent<RectTransform>(), position);
                 blocks.Add(block);
+
+                // ブロックが壊れたときの処理を登録
+                block.OnBroken.Subscribe(
+                    score => this.ScoreManager.UpdateScore(score)
+                    ).AddTo(block);
             }
         }
+
+        // 全ブロックが壊れたらクリア
+        var stream = blocks.Select(blcok => blcok.OnBroken);
+        Observable.WhenAll(stream).Subscribe(_ => GameClear());
+    }
+
+    /// <summary>
+    /// クリア時の処理
+    /// </summary>
+    private void GameClear()
+    {
+        Debug.Log("ゲームクリア ...");
     }
 }
